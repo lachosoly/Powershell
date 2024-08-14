@@ -1,0 +1,15 @@
+# Load SCOM PowerShell module
+Import-Module OperationsManager
+
+# Connect to the SCOM management server
+$managementServer = "YourSCOMServerName"
+New-SCOMManagementGroupConnection -ComputerName $managementServer
+
+# Find monitoring object by GUID
+$monitoringObject = Get-SCOMMonitoringObject -Id "c7a7ea08-da1f-4681-bbaa-5522771e0711"
+
+# Output details of the monitoring object
+$monitoringObject | Select-Object DisplayName, Id
+
+# Disconnect from SCOM management group
+Remove-SCOMManagementGroupConnection
