@@ -1,0 +1,15 @@
+# Load SCOM PowerShell module
+Import-Module OperationsManager
+
+# Connect to the SCOM management server
+$managementServer = "YourSCOMServerName"
+New-SCOMManagementGroupConnection -ComputerName $managementServer
+
+# Get performance counter objects
+$performanceCounters = Get-SCOMPerformanceCounter
+
+# Output performance counter details including ID
+$performanceCounters | Select-Object DisplayName, Id
+
+# Disconnect from SCOM management group
+Remove-SCOMManagementGroupConnection
