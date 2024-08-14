@@ -1,0 +1,15 @@
+# Load SCOM PowerShell module
+Import-Module OperationsManager
+
+# Connect to the SCOM management server
+$managementServer = "YourSCOMServerName"
+New-SCOMManagementGroupConnection -ComputerName $managementServer
+
+# Find management pack by GUID
+$managementPack = Get-SCOMManagementPack | Where-Object { $_.Id -eq "c7a7ea08-da1f-4681-bbaa-5522771e0711" }
+
+# Output details of the management pack
+$managementPack | Select-Object Name, Id
+
+# Disconnect from SCOM management group
+Remove-SCOMManagementGroupConnection
