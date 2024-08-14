@@ -1,0 +1,25 @@
+## Report for DC Login Failures ##
+$failedevent = $null
+$Date = Get-Date
+$dc = Read-Host 'What is the Domain Controller?'
+$Report = "C:\auditreport.html"
+$HTML = @"
+<title>Failed Login Report for $dc</title>
+<style>
+BODY{background-color: LightBlue;}
+</style>
+"@
+
+# Fetch failed login events (Event ID 4625) from the specified Domain Controller
+$failedevent = Get-EventLog -LogName Security -ComputerName $dc -InstanceId 4625 -After (Get-Date).AddDays(-7) |
+    Select-Object @{Name="SourceComputer";Expression={$_.ReplacementStrings[13]}},
+                  @{Name="UserName";Expression={$_.ReplacementStrings[5]}},
+                  @{Name="SourceIPAddress";Expression={$_.ReplacementStrings[18]}},
+                  TimeGenerated
+
+# Convert the events to an HTML report
+$failedevent | ConvertTo-Html -Property SourceComputer, UserName, SourceIPAddress, TimeGenerated -Head $HTML -Body "<H2>Failed Login Report for $dc</H2>" |
+    Out-File $Report
+
+# Open the report in the default web browser
+Invoke-Expression $Report
