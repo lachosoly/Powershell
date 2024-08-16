@@ -1,0 +1,51 @@
+# Import Active Directory module (if not already imported)
+Import-Module ActiveDirectory
+
+# Get all computer objects from the domain blacksea.com
+$domain = "domainsystemmame"
+$computers = Get-ADComputer -Filter * -Server $domain | Select-Object -ExpandProperty Name
+
+# Array to store computers that are not activated
+$notActivatedComputers = @()
+
+foreach ($computer in $computers) {
+    # Construct the fully qualified domain name (FQDN)
+    $fqdn = "$computer.$domain"
+    
+    # Check if the computer is online
+    if (Test-Connection -ComputerName $fqdn -Count 1 -Quiet) {
+        try {
+            # Get the activation status
+            $activationInfo = Get-CimInstance -ComputerName $fqdn -Query "SELECT * FROM SoftwareLicensingProduct WHERE PartialProductKey <> null AND LicenseStatus = 1"
+
+            if (-not $activationInfo) {
+                # Add to the list of not activated computers
+                $notActivatedComputers += $fqdn
+            }
+        } catch {
+            Write-Host "Could not retrieve activation status for $fqdn. Error: $_"
+            $notActivatedComputers += $fqdn
+        }
+    }
+}
+
+# Ensure the C:\Temp\ directory exists
+$outputDirectory = "C:\Temp\"
+if (-not (Test-Path $outputDirectory)) {
+    New-Item -Path $outputDirectory -ItemType Directory
+}
+
+# Prepare the output file path
+$outputFile = Join-Path -Path $outputDirectory -ChildPath "NotActivatedComputers_$(Get-Date -Format 'yyyyMMdd').txt"
+
+# Write to the output file
+if ($notActivatedComputers.Count -gt 0) {
+    "Date: $(Get-Date)" | Out-File $outputFile
+    "The following computers are not activated:" | Out-File $outputFile -Append
+    $notActivatedComputers | ForEach-Object { $_ | Out-File $outputFile -Append }
+} else {
+    "Date: $(Get-Date)" | Out-File $outputFile
+    "All reachable computers are activated." | Out-File $outputFile -Append
+}
+
+Write-Host "The output has been saved to $outputFile"
