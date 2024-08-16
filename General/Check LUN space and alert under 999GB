@@ -1,0 +1,22 @@
+# Get cluster shared volumes (LUNs)
+$clusterSharedVolumes = Get-ClusterSharedVolume
+
+# Output LUN space information for LUNs with free space smaller than 999GB
+foreach ($volume in $clusterSharedVolumes) {
+    $volumeName = $volume.SharedVolumeInfo.FriendlyVolumeName
+    $totalSpaceGB = [math]::Round(($volume.SharedVolumeInfo.Partition.Size / 1GB), 2)
+    $freeSpaceGB = [math]::Round(($volume.SharedVolumeInfo.Partition.FreeSpace / 1GB), 2)
+
+    # Check if the free space is less than 999GB
+    if ($freeSpaceGB -lt 999) {
+        Write-Host "LUN Name: $volumeName"
+        Write-Host "Total Space: $totalSpaceGB GB"
+        Write-Host "Free Space: $freeSpaceGB GB"
+        Write-Host "----------------------"
+    }
+}
+
+# Optionally, inform if no LUNs have free space below 999GB
+if (-not $clusterSharedVolumes | Where-Object { [math]::Round(($_.SharedVolumeInfo.Partition.FreeSpace / 1GB), 2) -lt 999 }) {
+    Write-Host "No LUNs found with free space less than 999GB."
+}
