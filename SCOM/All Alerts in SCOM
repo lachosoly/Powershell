@@ -1,0 +1,41 @@
+# Import the Operations Manager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management server
+$managementServer = "SCOM_Server_Name"
+New-SCOMManagementGroupConnection -ComputerName $managementServer
+
+# Get all open alerts
+$alerts = Get-SCOMAlert | Where-Object { $_.ResolutionState -eq 0 }
+
+# Create an array to store the alert details
+$alertData = @()
+
+foreach ($alert in $alerts) {
+    # Get the management pack associated with the alert
+    $monitoringObject = $alert.MonitoringObject
+    $managementPack = $monitoringObject.MonitoringClass.ManagementPack
+
+    # Collect alert details
+    $alertDetails = [PSCustomObject]@{
+        AlertName        = $alert.Name
+        Severity         = $alert.Severity
+        Priority         = $alert.Priority
+        AlertId          = $alert.Id
+        ResolutionState  = $alert.ResolutionState
+        RaisedDateTime   = $alert.TimeRaised
+        MonitoringObject = $alert.MonitoringObjectDisplayName
+        ManagementPack   = $managementPack.DisplayName
+    }
+
+    # Add the collected data to the array
+    $alertData += $alertDetails
+}
+
+# Define the output CSV file path
+$outputCsv = "C:\SCOM\SCOM_Alerts.csv"
+
+# Export the collected alert data to a CSV file
+$alertData | Export-Csv -Path $outputCsv -NoTypeInformation
+
+Write-Host "Exported alert data to $outputCsv"
