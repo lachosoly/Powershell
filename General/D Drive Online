@@ -1,0 +1,19 @@
+Invoke-Command -ComputerName "ComputerName" -ScriptBlock {
+    # Bring the disk online (replace <DiskNumber> with the actual disk number)
+    $disk = Get-Disk -Number 1
+    if ($disk.IsOffline) {
+        $disk | Set-Disk -IsOffline $false
+    }
+
+    # Bring the partition online (replace <PartitionNumber> with the actual partition number)
+    $partition = Get-Partition -DiskNumber 1 -PartitionNumber 2
+    if ($partition.IsOffline) {
+        $partition | Set-Partition -IsOffline $false
+    }
+
+    # Bring the volume online (Drive D)
+    $volume = Get-Volume -DriveLetter D
+    if ($volume.IsOffline) {
+        $volume | Set-Volume -IsReadOnly $false
+    }
+}
