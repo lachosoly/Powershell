@@ -1,0 +1,30 @@
+# Load the SCOM OperationsManager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management group
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
+
+# Get all active alerts
+$alerts = Get-SCOMAlert -ResolutionState 0
+
+foreach ($alert in $alerts) {
+    try {
+        # Get the MonitoringObjectID from the alert
+        $monitoringObjectID = $alert.MonitoringObjectID
+
+        # Get the SCOM class instance using the MonitoringObjectID
+        $classInstance = Get-SCOMClassInstance -Id $monitoringObjectID
+
+        # Get the MonitoringObjectPath
+        $monitoringObjectPath = $classInstance.Path
+
+        # Update CustomField3 with the MonitoringObjectPath
+        $alert.CustomField3 = $monitoringObjectPath
+        $alert.Update("Updated CustomField3 with the path: $monitoringObjectPath")
+
+        Write-Host "Alert ID $($alert.Id): Updated CustomField3 with $monitoringObjectPath"
+    }
+    catch {
+        Write-Error "Failed to update alert ID $($alert.Id): $_"
+    }
+}
