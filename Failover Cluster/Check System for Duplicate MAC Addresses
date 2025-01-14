@@ -1,0 +1,35 @@
+# Specify the path for the CSV file
+$csvPath = "c:\macduplicates.csv"
+
+# Check if the CSV file already exists and delete it if it does
+if (Test-Path -Path $csvPath) {
+    Remove-Item -Path $csvPath -Force
+    Write-Host "Existing file $csvPath found and deleted."
+}
+
+# Collect data about VMs with duplicate MAC addresses
+$duplicateMacs = Get-ClusterGroup | Where-Object { $_.GroupType -eq 'VirtualMachine' } | 
+    Get-VM | Get-VMNetworkAdapter |
+    Group-Object MacAddress | Where-Object { $_.Count -gt 1 } |
+    ForEach-Object {
+        # For each duplicate MAC address, list each VM with that MAC
+        $_.Group | ForEach-Object {
+            [PSCustomObject]@{
+                VMName = $_.VMName
+                MACAddress = $_.MacAddress
+            }
+        }
+    }
+
+# Check if duplicates were found and export to CSV
+if ($duplicateMacs) {
+    $duplicateMacs | Export-Csv -Path $csvPath -NoTypeInformation -Force
+    Write-Host "The list of VMs with duplicate MAC addresses has been exported to $csvPath"
+} else {
+    # If no duplicates were found, output 'None' to the CSV
+    [PSCustomObject]@{
+        VMName = "None"
+        MACAddress = "None"
+    } | Export-Csv -Path $csvPath -NoTypeInformation -Force
+    Write-Host "No duplicate MAC addresses were found. 'None' has been recorded in $csvPath"
+}
