@@ -1,0 +1,27 @@
+# Path to your CSV file
+$FilePath = "C:\path_to_file\sslcerts.csv"
+
+# Import the CSV data
+$csvData = Import-Csv -Path $FilePath
+
+# Create a counter to track the rows processed
+$rowCounter = 1
+
+# Iterate over each row in the CSV
+foreach ($row in $csvData) {
+    # Create an object in the context of the dashboard (assuming ScriptContext is available in your environment)
+    $dataObject = $ScriptContext.CreateInstance("xsd://foo!bar/baz")
+
+    # Assign values from the CSV to the properties of the object
+    $dataObject["Id"] = $row.ComputerName
+    $dataObject["N"] = $rowCounter
+    $dataObject["ComputerName"] = $row.ComputerName
+    $dataObject["Certificate"] = $row.Certificate
+    $dataObject["ExpiryDate"] = $row.ExpiryDate
+
+    # Add the object to the collection for the dashboard
+    $ScriptContext.ReturnCollection.Add($dataObject)
+
+    # Increment the row counter
+    $rowCounter++
+}
