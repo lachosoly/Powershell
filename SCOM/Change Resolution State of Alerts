@@ -1,0 +1,28 @@
+# Load SCOM PowerShell module if not already loaded
+if (-not (Get-Module -ListAvailable -Name "OperationsManager")) {
+    Import-Module OperationsManager
+}
+
+# Connect to your SCOM management group
+$SCOMServer = "SCOM"  # Replace with your SCOM management server
+New-SCOMManagementGroupConnection -ComputerName $SCOMServer
+
+# Define alert names to match
+$targetAlerts = @("Windows Update Failed", "Monitor System Up Time Greater than 45 days")
+$resolutionState = 100  # Set the desired resolution state
+
+# Get all active alerts in SCOM
+$alerts = Get-SCOMAlert -ResolutionState 0  # ResolutionState 0 means 'New' (active)
+
+# Loop through alerts and check for matching names
+foreach ($alert in $alerts) {
+    if ($alert.Name -in $targetAlerts) {
+        # Change the resolution state to 100 if the name matches
+        Write-Output "Updating alert '$($alert.Name)' to resolution state $resolutionState."
+        $alert.ResolutionState = $resolutionState
+        $alert.Update("Resolution state updated to $resolutionState by script.")
+    }
+}
+
+# Optional: Confirm completion
+#Write-Output "Alert resolution state update completed."
