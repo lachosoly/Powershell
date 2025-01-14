@@ -1,0 +1,17 @@
+#Collect SCOM agent display name and guid
+# Load the SCOM OperationsManager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management group
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
+
+# Get all agents and their GUIDs
+$agents = Get-SCOMAgent
+
+# Select DisplayName and GUID (Id)
+$agentDetails = $agents | Select-Object DisplayName, Id
+
+# Export the data to a CSV file
+$agentDetails | Export-Csv -Path "C:\path\to\your\folder\SCOM_Agents_Guid.csv" -NoTypeInformation
+
+Write-Host "Export complete. CSV file saved to C:\path\to\your\folder\SCOM_Agents_Guid.csv"
