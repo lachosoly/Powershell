@@ -1,0 +1,95 @@
+# Load the SCOM OperationsManager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management group
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
+
+# Get all active alerts
+$alerts = Get-SCOMAlert -ResolutionState 0
+
+# Define a list of alert names to match
+$predefinedAlertNames = @("IIS 10 Website is unavailable", "Logical Disk Free Space is low", "MSSQL on Windows: DB Engine is in unhealthy state", "Powershell Script failed to run", "Application Pool worker process is unresponsive", "Logical disk transfer (reads and writes) latency  is too high", "Percentage of Committed Memory in Use is too high", "High Memory Utilization","Cluster resource group offline or partially online", "Windows Process Activation is unavailable")  # Add more alert names as needed
+
+# Define the list of words to strip from the system info
+$wordsToRemove = @(
+    "Microsoft", "Windows", "Server", "OperatingSystem", "Standard", "Computer",
+    "Agent", "Interne", "2022", "a21c63a8-81b5-47eb-a44a-e2235f173d96", "IAAS..",
+    "Mitoring", "Mitoring ", "Mitoring    ", "Mitoring   ", "-...", "luster",
+    "eeam", "W3SVC/1", "Watcher", "Collecti", "2016", ".Informati",
+    "SMB", "ervices", "Application", "Jobwin", "Internet", "Information", 
+    "Group", "- ...10..", "IIS", "Files", "Monitoring", "Pool", "Appliction", 
+    "Virtual", "Machine", "Manager", "AD", "Controller", "role", "Database", 
+    "Model", "Logical", "Disk", "Discovery", "Domain", "SystemCenter", "local", 
+    "Alert", "Collection", "InternetInformationServices", "2019", "ApplicationPool", 
+    "..tInformatiS", "- ..", "IaaS CV", "- .10.0.", "Cluster", "Veeam", "Backup", "Acumatica"
+    "Service", "DBEngine", "SQL", "VirtualMachineManger", "Default", "Web", 
+    "Site", "on", "IAAS", "-...", "- ...", "tS", "10", "..0", "CV", ";", "CV..", "Sage2020", "Sage", "HRMS", "Health..scdf212bf-b9db-4991-508e-4dc8f0e64215"
+
+)  # Add any words you want to remove
+
+# Define additional strings to replace with empty intervals
+$stringsToReplace = @(
+    "CV..JobWIN-","MonitoringObjectPath:"  # Add other strings as needed
+)
+
+foreach ($alert in $alerts) {
+    try {
+        # Check if the alert name matches the predefined list
+        if ($predefinedAlertNames -contains $alert.Name) {
+            # If it matches, pull the MonitoringObjectPath and upload it to CustomField9
+            $monitoringObjectPath = $alert.MonitoringObjectPath
+            $alert.CustomField9 = $monitoringObjectPath
+            $alert.Update("Updated CustomField9 with: $monitoringObjectPath")
+
+            Write-Host "Alert ID $($alert.Id): Updated CustomField9 with MonitoringObjectPath: $monitoringObjectPath"
+            continue  # Skip the rest of the script for this alert and move to the next one
+        }
+
+        # Get the MonitoringObjectID from the alert
+        $monitoringObjectID = $alert.MonitoringObjectID
+
+        # Get the SCOM class instance using the MonitoringObjectID
+        $classInstance = Get-SCOMClassInstance -Id $monitoringObjectID
+
+        # Get the system name and FQDN
+        $systemName = $classInstance.DisplayName
+        $fqdn = $classInstance.FullName  # FQDN might need to be retrieved from a different property depending on your SCOM setup
+
+        # Combine the system name and FQDN into a single string
+        $systemInfo = "$systemName - $fqdn"
+
+        # Clean up the systemInfo string by removing specific words
+        foreach ($word in $wordsToRemove) {
+            $systemInfo = $systemInfo -replace [regex]::Escape($word), ""
+        }
+
+        # Remove the "(" character
+        $systemInfo = $systemInfo -replace '\(', ''
+
+        # Trim any extra spaces and unwanted characters
+        $cleanedSystemInfo = $systemInfo.Trim() -replace "\s+-\s+", "" -replace ":", ""
+
+        # Replace specific strings with empty intervals
+        foreach ($replaceString in $stringsToReplace) {
+            $cleanedSystemInfo = $cleanedSystemInfo -replace [regex]::Escape($replaceString), ""
+        }
+
+
+        # Remove leading period "." if CustomField9 starts with it
+        if ($cleanedSystemInfo.StartsWith(".")) {
+            $cleanedSystemInfo = $cleanedSystemInfo.TrimStart(".")
+        }
+
+        # Remove duplicate words or phrases
+        $cleanedSystemInfo = [regex]::Replace($cleanedSystemInfo, "\b(\w+)\b.*?\1\b", '$1')
+
+        # Update CustomField9 with the cleaned system info
+        $alert.CustomField9 = $cleanedSystemInfo
+        $alert.Update("Updated CustomField9 with cleaned system info: $cleanedSystemInfo")
+
+        Write-Host "Alert ID $($alert.Id): Updated CustomField9 with $cleanedSystemInfo"
+    }
+    catch {
+        Write-Error "Failed to update alert ID $($alert.Id): $_"
+    }
+}
