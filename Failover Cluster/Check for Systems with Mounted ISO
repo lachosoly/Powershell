@@ -1,0 +1,37 @@
+# Import the Hyper-V module
+Import-Module Hyper-V
+
+# Specify the Hyper-V cluster name
+$ClusterName = "CLUSTER"
+
+# Retrieve all cluster nodes
+$ClusterNodes = Get-ClusterNode -Cluster $ClusterName
+
+# Array to store results
+$ISOResults = @()
+
+# Loop through each node in the cluster
+foreach ($Node in $ClusterNodes) {
+    # Get all VMs on the current Hyper-V host
+    $VMs = Get-VM -ComputerName $Node.Name
+    
+    foreach ($VM in $VMs) {
+        # Get all DVD drives for the current VM
+        $DVDDrives = Get-VMDvdDrive -VMName $VM.Name -ComputerName $Node.Name
+
+        foreach ($DVD in $DVDDrives) {
+            # Check if an ISO is mounted
+            if ($DVD.Path -ne $null -and $DVD.Path -ne "") {
+                # Add to the results
+                $ISOResults += [PSCustomObject]@{
+                    VMName  = $VM.Name
+                    ISOPath = $DVD.Path
+                }
+            }
+        }
+    }
+}
+
+# Export results to CSV
+$OutputPath = "c:\mountediso.csv"
+$ISOResults | Export-Csv -Path $OutputPath -NoTypeInformation -Force
