@@ -1,0 +1,30 @@
+# Define the path for the CSV file
+$csvPath = "c:\staticmac.csv"
+
+# Get all VMs from all Hyper-V hosts in the cluster
+$ClusterNodes = Get-ClusterNode
+$VMsWithStaticMAC = @()
+
+foreach ($node in $ClusterNodes) {
+    $VMs = Get-VM -ComputerName $node.Name
+    foreach ($VM in $VMs) {
+        $NetworkAdapters = Get-VMNetworkAdapter -VMName $VM.Name -ComputerName $node.Name
+        foreach ($adapter in $NetworkAdapters) {
+            if ($adapter.DynamicMacAddressEnabled -eq $false) {
+                # If DynamicMacAddressEnabled is False, it means the MAC is static
+                $VMsWithStaticMAC += [PSCustomObject]@{
+                    VMName         = $VM.Name
+                    HostName       = $node.Name
+                    MacAddress     = $adapter.MacAddress
+                    NetworkAdapter = $adapter.Name
+                }
+            }
+        }
+    }
+}
+
+# Export the results to a CSV file
+$VMsWithStaticMAC | Export-Csv -Path $csvPath -NoTypeInformation
+
+# Optional: Output a message indicating where the CSV was saved
+Write-Host "The list of VMs with static MAC addresses has been exported to $csvPath"
