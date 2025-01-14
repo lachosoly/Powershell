@@ -2,7 +2,7 @@
 Import-Module OperationsManager
 
 # Connect to the SCOM management group
-New-SCOMManagementGroupConnection -ComputerName "SCOM-MGMT1"
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
 
 # Get all active alerts
 $alerts = Get-SCOMAlert -ResolutionState 0
