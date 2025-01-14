@@ -1,0 +1,34 @@
+# Load the SCOM OperationsManager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management group
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
+
+# Get all active alerts
+$alerts = Get-SCOMAlert -ResolutionState 0
+
+foreach ($alert in $alerts) {
+    try {
+        # Get the MonitoringObjectID from the alert
+        $monitoringObjectID = $alert.MonitoringObjectID
+
+        # Get the SCOM class instance using the MonitoringObjectID
+        $classInstance = Get-SCOMClassInstance -Id $monitoringObjectID
+
+        # Get the system name and FQDN
+        $systemName = $classInstance.DisplayName
+        $fqdn = $classInstance.FullName  # FQDN might need to be retrieved from a different property depending on your SCOM setup
+
+        # Combine the system name and FQDN into a single string
+        $systemInfo = "$systemName - $fqdn"
+
+        # Update CustomField2 with the system name and FQDN
+        $alert.CustomField9 = $systemInfo
+        $alert.Update("Updated CustomField9 with the system name and FQDN: $systemInfo")
+
+        Write-Host "Alert ID $($alert.Id): Updated CustomField9 with $systemInfo"
+    }
+    catch {
+        Write-Error "Failed to update alert ID $($alert.Id): $_"
+    }
+}
