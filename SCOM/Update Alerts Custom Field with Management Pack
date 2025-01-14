@@ -1,0 +1,28 @@
+ # Load the SCOM OperationsManager module
+Import-Module OperationsManager
+
+# Connect to the SCOM management group
+New-SCOMManagementGroupConnection -ComputerName "SCOM"
+
+# Get all active alerts
+$alerts = Get-SCOMAlert  -ResolutionState 0
+
+foreach ($alert in $alerts) {
+    # Get the MonitoringObjectID from the alert
+    $monitoringObjectID = $alert.MonitoringObjectID
+
+    # Get the SCOM class instance using the MonitoringObjectID
+    $classInstance = Get-SCOMClassInstance -Id $monitoringObjectID
+
+    # Get the least derived non-abstract management pack class ID
+    $mpClassId = $classInstance.LeastDerivedNonAbstractManagementPackClassId
+
+    # Get the management pack information from the class ID
+    $mpClass = Get-SCOMClass -Id $mpClassId
+    $managementPack = $mpClass.ManagementPackName
+
+    # Set CustomField1 to the management pack name
+    $alert.CustomField1 = $managementPack
+    $alert.Update("Updated CustomField1 with the management pack name: $($managementPack)")
+
+    }
