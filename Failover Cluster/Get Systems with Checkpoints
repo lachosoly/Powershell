@@ -1,0 +1,53 @@
+# Import the Hyper-V module
+Import-Module Hyper-V
+
+# Specify the Hyper-V cluster name
+$ClusterName = "Cluster"
+
+# Retrieve all cluster nodes
+$ClusterNodes = Get-ClusterNode -Cluster $ClusterName
+
+# Get the current date and subtract 7 days to determine the threshold
+$ThresholdDate = (Get-Date).AddDays(-7)
+
+# Array to store results
+$AVHDXResults = @()
+
+# Loop through each node in the cluster
+foreach ($Node in $ClusterNodes) {
+    # Get all VMs on the current Hyper-V host
+    $VMs = Get-VM -ComputerName $Node.Name
+    
+    foreach ($VM in $VMs) {
+        # Get all virtual hard disk drives for the current VM
+        $VMDrives = Get-VMHardDiskDrive -VMName $VM.Name -ComputerName $Node.Name
+
+        foreach ($Drive in $VMDrives) {
+            # Extract the virtual disk file path
+            $VHDPath = $Drive.Path
+            $VHDName = Split-Path -Path $VHDPath -Leaf
+
+            # Check if the disk file has .avhd or .avhdx extension
+            if ($VHDName -like "*.avhd" -or $VHDName -like "*.avhdx") {
+                # Get the creation time of the file
+                $CreationTime = (Get-Item -Path $VHDPath).CreationTime
+
+                # Check if the file is older than 7 days
+                if ($CreationTime -lt $ThresholdDate) {
+                    # Add to the results
+                    $AVHDXResults += [PSCustomObject]@{
+                        VMName       = $VM.Name
+                        CreationDate = $CreationTime
+                        DiskName     = $VHDName
+                        DiskPath     = $VHDPath
+                       
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Export results to CSV
+$OutputPath = "c:\checkp.csv"
+$AVHDXResults | Export-Csv -Path $OutputPath -NoTypeInformation -Force
