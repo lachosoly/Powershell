@@ -1,0 +1,28 @@
+# Specify the path for the CSV file
+$csvPath = "c:\Luns.csv"
+
+# Get cluster shared volumes (LUNs)
+$clusterSharedVolumes = Get-ClusterSharedVolume
+
+# Initialize an array to store the LUN space information
+$lunInfo = @()
+
+# Output LUN space information
+foreach ($volume in $clusterSharedVolumes) {
+    $volumeName = $volume.SharedVolumeInfo.FriendlyVolumeName
+    $totalSpaceGB = [math]::Round(($volume.SharedVolumeInfo.Partition.Size / 1GB), 2)
+    $freeSpaceGB = [math]::Round(($volume.SharedVolumeInfo.Partition.FreeSpace / 1GB), 2)
+
+    # Create a custom object for each LUN and add it to the array
+    $lunInfo += [PSCustomObject]@{
+        LUNName      = $volumeName
+        TotalSpaceGB = $totalSpaceGB
+        FreeSpaceGB  = $freeSpaceGB
+    }
+}
+
+# Export the LUN information to a CSV file
+$lunInfo | Export-Csv -Path $csvPath -NoTypeInformation -Force
+
+# Optional: Output a message indicating where the CSV was saved
+Write-Host "The LUN space information has been exported to $csvPath"
