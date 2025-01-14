@@ -1,0 +1,85 @@
+# Import the SCSM module (if not already imported)
+Import-Module 'C:\Program Files\Microsoft System Center\Service Manager\Microsoft.EnterpriseManagement.Core.Cmdlets.dll'
+
+# Get the relationship for Affected Configuration Items (System.WorkItemAboutConfigItem)
+$rel = Get-SCSMRelationship -Name "System.WorkItemAboutConfigItem"
+if (!$rel) {
+    Write-Host "Failed to retrieve the 'System.WorkItemAboutConfigItem' relationship."
+    return
+}
+
+# Get all incidents (fetching all incidents without filtering by status)
+$incidents = Get-SCSMClassInstance -Class (Get-SCSMClass -Name "System.WorkItem.Incident")
+
+if ($incidents.Count -eq 0) {
+    Write-Host "No incidents found."
+    return
+} else {
+    Write-Host "$($incidents.Count) incidents found."
+}
+
+# Initialize an array to store results for CSV export (optional)
+$results = @()
+
+# Loop through each incident to retrieve the affected configuration items
+foreach ($incident in $incidents) {
+    Write-Host "Processing Incident: $($incident.Id)"
+
+    try {
+        # Get the related Affected Configuration Items for this incident
+        $affectedCIs = $incident.GetRelatedObjectsWhereSource($rel.ID).EnterpriseManagementObject
+
+        if ($affectedCIs.Count -eq 0) {
+            Write-Host "No related configuration items found for Incident: $($incident.Id)"
+            continue
+        }
+
+        foreach ($affectedCI in $affectedCIs) {
+            # Get the GUID of the affected configuration item
+            $AffectedComputerGUID = $affectedCI.id.GUID
+
+            # Return the details of the related object
+            $AffectedComputerDetails = Get-SCSMClassInstance -ID $AffectedComputerGUID
+
+            # Ensure that PrincipalName and VirtualMachineName are valid strings
+            $PrincipalName = $AffectedComputerDetails.PrincipalName
+            $VirtualMachineName = $AffectedComputerDetails.VirtualMachineName
+
+            if ([string]::IsNullOrWhiteSpace($PrincipalName)) {
+                Write-Host "No Principal Name found for Incident: $($incident.Id)"
+                $PrincipalName = "N/A"
+            }
+
+            if ([string]::IsNullOrWhiteSpace($VirtualMachineName)) {
+                Write-Host "No Virtual Machine Name found for Incident: $($incident.Id)"
+                $VirtualMachineName = "N/A"
+            }
+
+            # Create a custom object to store the incident number, principal name, and virtual machine name (for CSV export)
+            $result = [PSCustomObject]@{
+                IncidentNumber    = $incident.Id
+                PrincipalName     = $PrincipalName
+                VirtualMachineName = $VirtualMachineName
+            }
+
+            # Add the result to the array (optional, for CSV export)
+            $results += $result
+
+            # Update the PrincipalName in CustomField8 and VirtualMachineName in CustomField7 of the incident
+            $incident.AlertCustomField8 = [string]$PrincipalName
+            $incident.AlertCustomField7 = [string]$VirtualMachineName
+
+            # Update the incident in Service Manager
+            Update-SCSMClassInstance -Instance $incident
+            Write-Host "Updated CustomField8 (Principal Name) and CustomField7 (Virtual Machine Name) for Incident: $($incident.Id)"
+        }
+    } catch {
+        Write-Host "Error processing Incident: $($incident.Id) - $_"
+    }
+}
+
+# Export the results to a CSV file (optional)
+#$csvPath = "C:\Path\To\Export\Incident_Principal_VirtualMachineNames.csv"
+#$results | Export-Csv -Path $csvPath -NoTypeInformation
+
+#Write-Host "Results exported to $csvPath"
