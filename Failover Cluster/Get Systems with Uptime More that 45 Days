@@ -1,0 +1,32 @@
+# Import the Hyper-V module
+Import-Module Hyper-V
+
+# Specify the Hyper-V cluster name
+$ClusterName = "CLUSTER"
+$ClusterNodes = Get-ClusterNode -Cluster $ClusterName
+
+# Create an array to store results
+$FilteredUptimeResults = @()
+
+# Loop through each node to get VM uptime
+foreach ($Node in $ClusterNodes) {
+    $VMs = Get-VM -ComputerName $Node.Name
+
+    foreach ($VM in $VMs) {
+        # Check if VM uptime exceeds 45 days
+        if ($VM.Uptime.Days -gt 45) {
+            # Add VM details to the results
+            $FilteredUptimeResults += [PSCustomObject]@{
+                VMName     = $VM.Name
+                UptimeDays = $VM.Uptime.Days
+            }
+        }
+    }
+}
+
+# Export the results to a CSV file
+$OutputPath = "C:\systemuptime.csv"
+$FilteredUptimeResults | Export-Csv -Path $OutputPath -NoTypeInformation -Force
+
+# Output a message
+#Write-Host "Exported VMs with uptime above 45 days to $OutputPath" -ForegroundColor Green
