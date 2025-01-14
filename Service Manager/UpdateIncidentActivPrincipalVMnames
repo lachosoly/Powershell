@@ -1,0 +1,81 @@
+Import-module 'C:\Program Files\Microsoft System Center\Service Manager\PowerShell\System.Center.Service.Manager.psm1'
+Import-module 'C:\Program Files\Microsoft System Center\Service Manager\PowerShell\System.Center.Service.Manager.psd1'
+
+
+# Import the SCSM module (if not already imported)
+Import-Module 'C:\Program Files\Microsoft System Center\Service Manager\Microsoft.EnterpriseManagement.Core.Cmdlets.dll'
+
+# Get the relationship for Affected Configuration Items (System.WorkItemAboutConfigItem)
+$rel = Get-SCSMRelationship -Name "System.WorkItemAboutConfigItem"
+if (!$rel) {
+    return  # Exit the script if the relationship is not found
+}
+
+# Get all incidents (fetching all incidents without filtering by status)
+$incidents = Get-SCSMClassInstance -Class (Get-SCSMClass -Name "System.WorkItem.Incident")
+
+if ($incidents.Count -eq 0) {
+    return  # Exit the script if no incidents are found
+}
+
+# Initialize an array to store results for CSV export (optional)
+$results = @()
+
+# Loop through each incident to process only Active incidents
+foreach ($incident in $incidents) {
+    # Check if the incident is Active
+    if ($incident.Status.DisplayName -ne "Active") {
+        continue
+    }
+
+    try {
+        # Get the related Affected Configuration Items for this incident
+        $affectedCIs = $incident.GetRelatedObjectsWhereSource($rel.ID).EnterpriseManagementObject
+
+        if ($affectedCIs.Count -eq 0) {
+            continue  # Skip incidents with no related configuration items
+        }
+
+        foreach ($affectedCI in $affectedCIs) {
+            # Get the GUID of the affected configuration item
+            $AffectedComputerGUID = $affectedCI.id.GUID
+
+            # Return the details of the related object
+            $AffectedComputerDetails = Get-SCSMClassInstance -ID $AffectedComputerGUID
+
+            # Ensure that PrincipalName and VirtualMachineName are valid strings
+            $PrincipalName = $AffectedComputerDetails.PrincipalName
+            $VirtualMachineName = $AffectedComputerDetails.VirtualMachineName
+
+            if ([string]::IsNullOrWhiteSpace($PrincipalName)) {
+                $PrincipalName = "N/A"
+            }
+
+            if ([string]::IsNullOrWhiteSpace($VirtualMachineName)) {
+                $VirtualMachineName = "N/A"
+            }
+
+            # Create a custom object to store the incident number, principal name, and virtual machine name (for CSV export)
+            $result = [PSCustomObject]@{
+                IncidentNumber    = $incident.Id
+                PrincipalName     = $PrincipalName
+                VirtualMachineName = $VirtualMachineName
+            }
+
+            # Add the result to the array (optional, for CSV export)
+            $results += $result
+
+            # Update the PrincipalName in CustomField8 and VirtualMachineName in CustomField7 of the incident
+            $incident.AlertCustomField8 = [string]$PrincipalName
+            $incident.AlertCustomField7 = [string]$VirtualMachineName
+
+            # Update the incident in Service Manager
+            Update-SCSMClassInstance -Instance $incident
+        }
+    } catch {
+        # Error handling can be logged if necessary, but no output here
+        continue
+    }
+}
+
+
