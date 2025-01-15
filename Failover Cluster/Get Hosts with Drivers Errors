@@ -1,0 +1,61 @@
+# Function to check for devices with missing or problematic drivers
+function Check-DeviceDrivers {
+    param (
+        [string]$ComputerName,
+        [ref]$ResultsArray
+    )
+
+    try {
+        Write-Host "Checking devices on $ComputerName..." -ForegroundColor Cyan
+
+        $devices = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+            Get-WmiObject -Class Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+        }
+
+        if ($devices) {
+            # Group by Device Name, Status, and Problem Code
+            $groupedDevices = $devices | Group-Object Name, Status, ConfigManagerErrorCode
+
+            foreach ($group in $groupedDevices) {
+                $device = $group.Group[0]  # Take the first object from the group
+                $ResultsArray.Value += [PSCustomObject]@{
+                    ComputerName = $ComputerName
+                    DeviceName   = $device.Name
+                    DeviceStatus = $device.Status
+                    ProblemCode  = $device.ConfigManagerErrorCode
+                    Occurrences  = $group.Count
+                }
+            }
+        } else {
+            Write-Host "All devices on $ComputerName have proper drivers installed." -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "Failed to query $ComputerName. Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+# Variables
+$ClusterName = "bach-east.swknws.com"  # Replace with your cluster name
+$OutputFile = "c:\DeviceIssues.csv"  # Output CSV file
+$ResultsArray = @()
+
+try {
+    # Get cluster nodes
+    $ClusterNodes = Get-ClusterNode -Cluster $ClusterName | Select-Object -ExpandProperty Name
+    Write-Host "Cluster nodes for ${ClusterName}: $ClusterNodes" -ForegroundColor Cyan
+
+    # Check devices on each cluster node
+    foreach ($Node in $ClusterNodes) {
+        Check-DeviceDrivers -ComputerName $Node -ResultsArray ([ref]$ResultsArray)
+    }
+
+    # Export results to CSV
+    if ($ResultsArray.Count -gt 0) {
+        $ResultsArray | Export-Csv -Path $OutputFile -NoTypeInformation -Force
+        Write-Host "Results exported to $OutputFile" -ForegroundColor Green
+    } else {
+        Write-Host "No issues found on the cluster nodes." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "Failed to retrieve cluster nodes for $ClusterName. Error: $($_.Exception.Message)" -ForegroundColor Red
+}
