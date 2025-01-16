@@ -1,0 +1,167 @@
+# Updated code for installing IIS, applying SSL cert, and setting SSL flags
+Add-Type -AssemblyName System.Windows.Forms
+
+# Create a form for input
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Install IIS and Add SSL Certificate"
+$form.Width = 600
+$form.Height = 350
+$form.StartPosition = "CenterScreen"
+
+# Create labels and input text boxes for computer name, website address, and IP address
+$label1 = New-Object System.Windows.Forms.Label
+$label1.Text = "Enter Computer Name:"
+$label1.Left = 10
+$label1.Top = 20
+$label1.Width = 180
+$form.Controls.Add($label1)
+
+$inputBox1 = New-Object System.Windows.Forms.TextBox
+$inputBox1.Left = 210
+$inputBox1.Top = 20
+$inputBox1.Width = 300
+$form.Controls.Add($inputBox1)
+
+$label2 = New-Object System.Windows.Forms.Label
+$label2.Text = "Enter Website URL Address:"
+$label2.Left = 10
+$label2.Top = 60
+$label2.Width = 180
+$form.Controls.Add($label2)
+
+$inputBox2 = New-Object System.Windows.Forms.TextBox
+$inputBox2.Left = 210
+$inputBox2.Top = 60
+$inputBox2.Width = 300
+$form.Controls.Add($inputBox2)
+
+$label3 = New-Object System.Windows.Forms.Label
+$label3.Text = "Enter Website IP Address:"
+$label3.Left = 10
+$label3.Top = 100
+$label3.Width = 180
+$form.Controls.Add($label3)
+
+$inputBox3 = New-Object System.Windows.Forms.TextBox
+$inputBox3.Left = 210
+$inputBox3.Top = 100
+$inputBox3.Width = 300
+$form.Controls.Add($inputBox3)
+
+# OK and Cancel buttons
+$okButton = New-Object System.Windows.Forms.Button
+$okButton.Text = "OK"
+$okButton.Left = 150
+$okButton.Top = 160
+$okButton.Add_Click({
+    $form.Tag = "OK"
+    $form.Close()
+})
+$form.Controls.Add($okButton)
+
+$cancelButton = New-Object System.Windows.Forms.Button
+$cancelButton.Text = "Cancel"
+$cancelButton.Left = 250
+$cancelButton.Top = 160
+$cancelButton.Add_Click({
+    $form.Tag = "Cancel"
+    $form.Close()
+})
+$form.Controls.Add($cancelButton)
+
+# Show the form
+$form.ShowDialog() | Out-Null
+
+# Check if the OK button was pressed
+if ($form.Tag -eq "OK") {
+    $computerName = $inputBox1.Text
+    $websiteAddress = $inputBox2.Text
+    $ipAddress = $inputBox3.Text
+
+    Write-Output "Computer Name: $computerName"
+    Write-Output "Website Address: $websiteAddress"
+    Write-Output "IP Address: $ipAddress"
+
+    # Variables to define in the script
+    $certPassword = "Pass2025!"   # Define your certificate password here
+    $certLocation = "C:\ssl cert\wildcard_ssl.pfx"   # Path to the certificate
+    $certThumbprint = "xxxxxxxxxxxxxxxx"   # Thumbprint of the certificate
+
+    # Install IIS on the remote computer
+    Invoke-Command -ComputerName $computerName -ScriptBlock {
+        Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+    }
+
+    # Wait and check if IIS is installed every 60 seconds
+    $iisInstalled = $false
+    while (-not $iisInstalled) {
+        Start-Sleep -Seconds 60
+        $iisStatus = Invoke-Command -ComputerName $computerName -ScriptBlock {
+            Get-WindowsFeature -Name Web-Server
+        }
+        $iisInstalled = $iisStatus.Installed
+        if ($iisInstalled) {
+            Write-Output "IIS Installation completed on $computerName."
+        } else {
+            Write-Output "Waiting for IIS installation to complete on $computerName..."
+        }
+    }
+
+    # Import the SSL certificate to the remote computer
+    Invoke-Command -ComputerName $computerName -ScriptBlock {
+        param($certLocation, $certPassword)
+        $cert = Import-PfxCertificate -FilePath $certLocation -CertStoreLocation Cert:\LocalMachine\My -Password (ConvertTo-SecureString $certPassword -AsPlainText -Force)
+    } -ArgumentList $certLocation, $certPassword
+
+    # Bind the SSL certificate to the website in IIS and enable SSL flags
+    Invoke-Command -ComputerName $computerName -ScriptBlock {
+        param($websiteAddress, $certThumbprint, $ipAddress)
+        Import-Module WebAdministration
+        
+        # Bind the certificate to the website
+        New-WebBinding -Name $websiteAddress -IPAddress $ipAddress -Port 443 -Protocol https
+        
+        # Get the existing binding and set the SSL flag
+        $binding = Get-WebBinding -Name $websiteAddress -IPAddress $ipAddress -Port 443 -Protocol https
+        if ($binding) {
+            Set-WebConfigurationProperty -Filter "system.applicationHost/sites/site[@name='$websiteAddress']/bindings/binding[@protocol='https' and @bindingInformation='$ipAddress:443']" -Name sslFlags -Value 1
+        }
+        
+        # Bind the certificate to the SSL binding
+        $cert = Get-ChildItem "Cert:\LocalMachine\My\$certThumbprint"
+        if ($cert) {
+            New-Item "IIS:\SslBindings\$ipAddress!443" -Thumbprint $cert.Thumbprint
+        }
+    } -ArgumentList $websiteAddress, $certThumbprint, $ipAddress
+
+    Write-Output "SSL Certificate applied and SSL flags set on website $websiteAddress."
+
+} else {
+    Write-Output "Input was canceled."
+}
+
+
+
+    ##### Scheduled Tasks for SCOM Alerting #####
+    # Define variables for the remote computer and scheduled task parameters
+    $remoteComputer = $computerName  # Using the same computer name as input
+    $taskName = "SSLCertificateReminder"
+    $startYear = 2025
+    $endYear = 2029
+
+    # Loop through each year from 2025 to 2029
+    for ($year = $startYear; $year -le $endYear; $year++) {
+        # Define the scheduled task action to write an event to the Event Viewer
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-Command `"if (-not (Get-EventLog -LogName Application -Source 'SCS')) { New-EventLog -LogName Application -Source 'SCS'; } Write-EventLog -LogName Application -Source 'SCS' -EventId 999 -EntryType Information -Message 'The SSL certificate will expire in less than 30 days'`""
+
+        # Define the scheduled task trigger for May 1st of the specified year
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date "$year-05-01 12:00AM")
+
+        # Register the scheduled task on the remote computer
+        Invoke-Command -ComputerName $remoteComputer -ScriptBlock {
+            param($taskName, $trigger, $action, $year)
+            Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "$taskName-$year" -Description "SSL certificate expiry warning task for $year" -User "NT AUTHORITY\SYSTEM" -RunLevel Highest
+        } -ArgumentList $taskName, $trigger, $action, $year
+
+        Write-Host "Scheduled task for May 1, $year created on $remoteComputer"
+    }
