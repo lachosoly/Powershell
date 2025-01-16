@@ -1,0 +1,101 @@
+Add-Type -AssemblyName System.Windows.Forms
+
+# Create a new form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Please provide information"
+$form.Width = 600
+$form.Height = 600  # Increased the height for more fields
+$form.StartPosition = "CenterScreen"
+
+
+# Create and extend the label 1
+$label1 = New-Object System.Windows.Forms.Label
+$label1.Text = "Computer Name"
+$label1.Left = 10
+$label1.Top = 20
+$label1.Width = 200  # Extend the label width
+$label1.AutoSize = $false  # Disable AutoSize to control the width manually
+$form.Controls.Add($label1)
+
+# Create and extend the input box
+$inputBox1 = New-Object System.Windows.Forms.TextBox
+$inputBox1.Left = 250
+$inputBox1.Top = 20
+$inputBox1.Width = 200  # Extend the input box width
+$form.Controls.Add($inputBox1)
+
+
+
+
+
+# Create and extend the label 2
+$label1 = New-Object System.Windows.Forms.Label
+$label1.Text = "Enter first value (longer label example):"
+$label1.Left = 10
+$label1.Top = 100
+$label1.Width = 300  # Extend the label width
+$label1.AutoSize = $false  # Disable AutoSize to control the width manually
+$form.Controls.Add($label1)
+
+# Create and extend the input box
+$inputBox1 = New-Object System.Windows.Forms.TextBox
+$inputBox1.Left = 150
+$inputBox1.Top = 20
+$inputBox1.Width = 200  # Extend the input box width
+$form.Controls.Add($inputBox1)
+
+
+
+# Create and extend the label 3
+$label1 = New-Object System.Windows.Forms.Label
+$label1.Text = "Enter first value (longer label example):"
+$label1.Left = 10
+$label1.Top = 20
+$label1.Width = 300  # Extend the label width
+$label1.AutoSize = $false  # Disable AutoSize to control the width manually
+$form.Controls.Add($label1)
+
+# Create and extend the input box
+$inputBox1 = New-Object System.Windows.Forms.TextBox
+$inputBox1.Left = 150
+$inputBox1.Top = 20
+$inputBox1.Width = 200  # Extend the input box width
+$form.Controls.Add($inputBox1)
+
+
+
+# OK button
+$okButton = New-Object System.Windows.Forms.Button
+$okButton.Text = "OK"
+$okButton.Left = 150
+$okButton.Top = 160  # Adjusted position to allow space for inputs
+$okButton.Add_Click({
+    $form.Tag = "OK"
+    $form.Close()
+})
+$form.Controls.Add($okButton)
+
+# Cancel button
+$cancelButton = New-Object System.Windows.Forms.Button
+$cancelButton.Text = "Cancel"
+$cancelButton.Left = 250
+$cancelButton.Top = 160
+$cancelButton.Add_Click({
+    $form.Tag = "Cancel"
+    $form.Close()
+})
+$form.Controls.Add($cancelButton)
+
+# Show the form
+$form.ShowDialog() | Out-Null
+
+# Check if the OK button was pressed
+if ($form.Tag -eq "OK") {
+    $value1 = $inputBox1.Text
+    $value2 = $inputBox2.Text
+    $value3 = $inputBox3.Text
+
+    Write-Output "You entered: $value1, $value2, and $value3"
+} else {
+    Write-Output "Input was canceled."
+}
