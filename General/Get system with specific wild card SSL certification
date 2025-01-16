@@ -1,0 +1,48 @@
+# Import Active Directory module
+Import-Module ActiveDirectory
+
+# Define a time frame for 'active' computers (e.g., computers that have logged in within the last 30 days)
+$activeThreshold = (Get-Date).AddDays(-10)
+
+# Get all active computers in the domain (enabled and recently active)
+$computers = Get-ADComputer -Filter {Enabled -eq $true -and LastLogonDate -ge $activeThreshold} -Property Name, LastLogonDate | Select-Object -ExpandProperty Name
+
+# Initialize an array to store certificate information
+$certResults = @()
+
+# Loop through each active computer
+foreach ($computer in $computers) {
+    try {
+        # Create a CIM session (using DCOM)
+        $session = New-CimSession -ComputerName $computer -SessionOption (New-CimSessionOption -Protocol Dcom)
+        
+        # Execute the certificate check remotely using Invoke-Command and CIM session
+        $certs = Invoke-Command -Session (New-PSSession -ComputerName $computer) -ScriptBlock {
+            Get-ChildItem -Path Cert:\CurrentUser\My | 
+            Where-Object { $_.Subject -match 'domain.com' } |  # Filter by subject containing *.domain.com
+            Select-Object Thumbprint, Subject, Issuer, NotBefore, NotAfter, FriendlyName
+        }
+
+        # Append the filtered results to the $certResults array
+        $certResults += $certs | ForEach-Object {
+            [PSCustomObject]@{
+                ComputerName = $computer
+                Thumbprint   = $_.Thumbprint
+                Subject      = $_.Subject
+                Issuer       = $_.Issuer
+                NotBefore    = $_.NotBefore
+                NotAfter     = $_.NotAfter
+                FriendlyName = $_.FriendlyName
+            }
+        }
+    }
+    catch {
+        Write-Host "Failed to connect to ${computer}: $($_.Exception.Message)"
+    }
+}
+
+# Output the results
+$certResults | Format-Table -AutoSize
+
+# Optional: Export the results to a CSV file
+$certResults | Export-Csv -Path "C:\PS results\SSL_certificates_report.csv" -NoTypeInformation
