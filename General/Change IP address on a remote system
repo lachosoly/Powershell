@@ -1,0 +1,143 @@
+# Create a form for input
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Set IP Address Configuration"
+$form.Width = 6xx
+$form.Height = xxx
+$form.StartPosition = "CenterScreen"
+
+# Create label and input text box for system name
+$labelx = New-Object System.Windows.Forms.Label
+$labelx.Text = "Enter Computer Name:"
+$labelx.Left = x
+$labelx.Top = x
+$labelx.Width = xxx
+$labelx.AutoSize = $false
+$form.Controls.Add($labelx)
+
+$inputBoxx = New-Object System.Windows.Forms.TextBox
+$inputBoxx.Left = xx
+$inputBoxx.Top = x
+$inputBoxx.Width = xx
+$form.Controls.Add($inputBoxx)
+
+# Create label and input text box for IP address
+$labelx = New-Object System.Windows.Forms.Label
+$labelx.Text = "Enter IP Address:"
+$labelx.Left = x
+$labelx.Top = 6x
+$labelx.Width = xxx
+$labelx.AutoSize = $false
+$form.Controls.Add($labelx)
+
+$inputBoxx = New-Object System.Windows.Forms.TextBox
+$inputBoxx.Left = xx
+$inputBoxx.Top = 6x
+$inputBoxx.Width = xx
+$form.Controls.Add($inputBoxx)
+
+# OK button
+$okButton = New-Object System.Windows.Forms.Button
+$okButton.Text = "OK"
+$okButton.Left = xxx
+$okButton.Top = xx
+$okButton.Add_Click({
+    $form.Tag = "OK"
+    $form.Close()
+})
+$form.Controls.Add($okButton)
+
+# Cancel button
+$cancelButton = New-Object System.Windows.Forms.Button
+$cancelButton.Text = "Cancel"
+$cancelButton.Left = xxx
+$cancelButton.Top = xx
+$cancelButton.Add_Click({
+    $form.Tag = "Cancel"
+    $form.Close()
+})
+$form.Controls.Add($cancelButton)
+
+# Show the form and capture input
+$form.ShowDialog() | Out-Null
+
+# Check if user pressed OK
+if ($form.Tag -eq "OK") {
+    $systemName = $inputBoxx.Text
+    $ipAddress = $inputBoxx.Text
+
+    # Remote execution of the configuration command on the specified system
+    Invoke-Command -ComputerName $systemName -ScriptBlock {
+        param ($ipAddress)
+        $currentIP = (Get-NetIPAddress -InterfaceAlias "Ethernet" -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne 'x.x.x.x' }).IPAddress
+        # Function to apply network configuration based on IP address
+        function ApplyNetworkConfigBasedOnIP($ipAddress) {
+            $ipParts = $ipAddress.Split('.')
+            $partB = [int]$ipParts[x]
+            $partC = [int]$ipParts[x]
+
+            if ($partB -eq x -and $partC -eq x) {
+                Write-Host "Apply network configuration for IP subnet x.x.x.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.x.x", "x.x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.x.x"
+            }
+            elseif ($partB -eq x -and $partC -eq xx) {
+                Write-Host "Apply network configuration for IP subnet x.x.xx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.x.x", "x.x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.xx.x"
+            }
+            elseif ($partB -eq x -and $partC -eq xx) {
+                Write-Host "Apply network configuration for IP subnet x.x.xx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.x.x", "x.x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.xx.x"
+            }
+            elseif ($partB -eq 4x -and $partC -eq x) {
+                Write-Host "Apply network configuration for IP subnet x.4x.x.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.4x.x.7", "x.4x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.4x.x.x"
+            }
+            elseif ($partB -eq 4x -and $partC -eq xx) {
+                Write-Host "Apply network configuration for IP subnet x.4x.xx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.4x.x.7", "x.4x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.4x.xx.x"
+            }
+            elseif ($partB -eq 4x -and $partC -eq xx) {
+                Write-Host "Apply network configuration for IP subnet x.4x.xx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.4x.x.7", "x.4x.x.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.4x.xx.x"
+            }
+            elseif ($partB -eq x -and $partC -eq xxx) {
+                Write-Host "Apply network configuration for IP subnet x.x.xxx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.xxx.x", "x.x.xxx.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.xxx.xx4"
+            }
+            elseif ($partB -eq x -and $partC -eq x) {
+                Write-Host "Apply network configuration for IP subnet x.x.x.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.x.xxx", "x.x.x.xxx"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.x.x"
+            }
+            elseif ($partB -eq x -and $partC -eq xxx) {
+                Write-Host "Apply network configuration for IP subnet x.x.xxx.x/x4"
+                Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses "x.x.xxx.x", "x.x.xxx.x"
+                Set-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $ipAddress -PrefixLength x4 -DefaultGateway "x.x.xxx.xx4"
+            }
+
+
+
+
+
+
+        }
+
+        # Call the function to apply network configuration
+        ApplyNetworkConfigBasedOnIP $ipAddress
+
+    } -ArgumentList $ipAddress
+
+    Write-Host "Network configuration applied on $systemName with IP $ipAddress"
+}
+# After applying new IP, remove the old IP
+if ($currentIP) {
+    Write-Host "Removing old IP address $currentIP"
+    Remove-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress $currentIP -Confirm:$false
+
+}   
