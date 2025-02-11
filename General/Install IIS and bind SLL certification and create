@@ -83,7 +83,7 @@ if ($form.Tag -eq "OK") {
     Write-Output "IP Address: $ipAddress"
 
     # Variables to define in the script
-    $certPassword = "Pass2025!"   # Define your certificate password here
+    $certPassword = "Pass"   # Define your certificate password here
     $certLocation = "C:\ssl cert\wildcard_ssl.pfx"   # Path to the certificate
     $certThumbprint = "xxxxxxxxxxxxxxxx"   # Thumbprint of the certificate
 
@@ -146,8 +146,8 @@ if ($form.Tag -eq "OK") {
     # Define variables for the remote computer and scheduled task parameters
     $remoteComputer = $computerName  # Using the same computer name as input
     $taskName = "SSLCertificateReminder"
-    $startYear = 2025
-    $endYear = 2029
+    $startYear = 2026
+    $endYear = 2030
 
     # Loop through each year from 2025 to 2029
     for ($year = $startYear; $year -le $endYear; $year++) {
