@@ -1,0 +1,23 @@
+$TaskName = "Windows Updates One-Time"
+$ScriptPath = "C:\Script\updatev1.ps1"
+
+# Ensure the script exists
+if (-Not (Test-Path $ScriptPath)) {
+    Write-Host "ERROR: Script file not found at $ScriptPath"
+    exit
+}
+
+# Define the action (run PowerShell script)
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$ScriptPath`""
+
+# Define the trigger (Run once at a specified date and time)
+$Trigger = New-ScheduledTaskTrigger -Once -At "2025-02-26T08:05:00"
+
+
+# Define settings (run with highest privileges)
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+
+# Create the task
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -RunLevel Highest -User "SYSTEM" -Force
+
+Write-Host "Scheduled task '$TaskName' created successfully. It will run once."
