@@ -1,0 +1,17 @@
+# Define the dependdent system's IP address
+$dependentIP = "x.x.x.x"
+
+# Check connectivity to the dependent system
+Write-Host "Checking connectivity to $dependentIP..."
+if (Test-Connection -ComputerName $dependentIP -Count 2 -Quiet) {
+    Write-Host "Dependency $dependentIP is online. Proceeding with updates."
+
+    # Install Windows Updates
+    Write-Host "Checking for Windows Updates..."
+    Get-WindowsUpdate -MicrosoftUpdate -Install -AcceptAll -AutoReboot -Verbose
+
+    # Reboot after updates (if needed)
+    Write-Host "Updates applied. System will reboot if required."
+} else {
+    Write-Host "Dependency $dependentIP is unreachable. Skipping update process."
+}
