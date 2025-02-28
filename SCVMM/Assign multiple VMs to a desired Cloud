@@ -1,0 +1,31 @@
+# Define VMM Server
+$VMMServer = "scvmm"  # Replace with your SCVMM server name
+$CSVFile = "C:\scvmm\V1.csv"  # Replace with the actual path to your CSV file
+
+# Connect to VMM Server
+$VMM = Get-SCVMMServer -ComputerName $VMMServer
+
+# Import CSV and process each row
+$VMsList = Import-Csv -Path $CSVFile
+
+foreach ($Entry in $VMsList) {
+    $VMName = $Entry.VMName
+    $CloudName = $Entry.CloudName
+
+    # Get the VM and Cloud
+    $VM = Get-SCVirtualMachine -VMMServer $VMM -Name $VMName -ErrorAction SilentlyContinue
+    $Cloud = Get-SCCloud -VMMServer $VMM -Name $CloudName -ErrorAction SilentlyContinue
+
+    # Validate if both exist
+    if ($VM -and $Cloud) {
+        # Assign VM to Cloud
+        Set-SCVirtualMachine -VM $VM -Cloud $Cloud
+        Write-Host "VM '$VMName' successfully assigned to Cloud '$CloudName'." -ForegroundColor Green
+    } else {
+        # Handle missing VM or Cloud
+        if (-not $VM) { Write-Host "VM '$VMName' not found in VMM." -ForegroundColor Red }
+        if (-not $Cloud) { Write-Host "Cloud '$CloudName' not found in VMM." -ForegroundColor Red }
+    }
+}
+
+Write-Host "Script execution completed." -ForegroundColor Cyan
