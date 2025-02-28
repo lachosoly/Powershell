@@ -1,0 +1,27 @@
+# Define your SCVMM server
+$VMMServer = "YourVMMServer"
+
+# Connect to SCVMM
+$VMs = Get-SCVirtualMachine -VMMServer $VMMServer
+
+# Create an array to store the results
+$Results = @()
+
+foreach ($VM in $VMs) {
+    # Check if the VM is assigned to a cloud
+    $CloudName = if ($VM.Cloud -ne $null) { $VM.Cloud.Name } else { "Not Assigned" }
+
+    # Store the results in a custom object
+    $Results += [PSCustomObject]@{
+        VMName  = $VM.Name
+        Cloud   = $CloudName
+        Host    = $VM.HostName
+        Status  = $VM.Status
+    }
+}
+
+# Export results to a CSV file
+$Results | Export-Csv -Path "C:\VMM_VM_Cloud_Assignment.csv" -NoTypeInformation
+
+# Display results in PowerShell
+$Results
