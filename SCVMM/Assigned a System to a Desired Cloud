@@ -1,0 +1,18 @@
+# Define variables
+$VMMServer = "SCVMM"  # Replace with your SCVMM server name
+$VMName = "DC1"        # Replace with the VM name you want to assign
+$CloudName = "MyCloud"  # Replace with the target cloud name
+
+# Connect to VMM Server
+$VMM = Get-SCVMMServer -ComputerName $VMMServer
+
+# Get the VM
+$VM = Get-SCVirtualMachine -VMMServer $VMM -Name $VMName
+
+# Get the Cloud
+$Cloud = Get-SCCloud -VMMServer $VMM -Name $CloudName
+
+# Assign the VM to the Cloud
+Set-SCVirtualMachine -VM $VM -Cloud $Cloud
+
+Write-Host "VM '$VMName' has been successfully assigned to the cloud '$CloudName'." -ForegroundColor Green
