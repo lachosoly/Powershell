@@ -1,0 +1,25 @@
+# Define your SCVMM server
+$VMMServer = "scvmm"
+
+# Connect to SCVMM and get all VMs
+$VMs = Get-SCVirtualMachine -VMMServer $VMMServer
+
+# Filter VMs that are not assigned to a cloud
+$UnassignedVMs = $VMs | Where-Object { -not $_.Cloud }
+
+# Create an array to store the results
+$Results = @()
+
+foreach ($VM in $UnassignedVMs) {
+    # Store the results in a custom object
+    $Results += [PSCustomObject]@{
+        VMName  = $VM.Name
+        Cloud   = "Not Assigned"
+    }
+}
+
+# Export results to a CSV file
+$Results | Export-Csv -Path "C:\VMM_Unassigned_VMs2.csv" -NoTypeInformation
+
+# Display results in PowerShell
+$Results
