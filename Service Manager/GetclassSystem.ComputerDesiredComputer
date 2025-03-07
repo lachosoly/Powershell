@@ -1,0 +1,12 @@
+Import-Module 'Microsoft.EnterpriseManagement.ServiceManager.Cmdlets'
+Import-Module 'C:\Program Files\Microsoft System Center\Service Manager\Microsoft.EnterpriseManagement.Core.Cmdlets.dll'
+
+
+# Get the Windows Computer class
+$windowsComputerClass = Get-SCSMClass -Name "System.Computer"
+
+# Retrieve the computer instance based on the known Principal Name
+$computerInstance = Get-SCSMClassInstance -Class $windowsComputerClass | Where-Object { $_.PrincipalName -eq "test.domain.com" }
+
+# Display all properties for the computer instance
+$computerInstance | Format-List *
