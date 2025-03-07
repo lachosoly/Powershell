@@ -1,0 +1,17 @@
+# Define paths
+$ISOPath = "D:\setup.exe"  # Adjust if the ISO is mounted on a different drive
+$LogPath = "C:\UpgradeLogs\Upgrade.log"
+
+# Ensure the log directory exists
+if (!(Test-Path "C:\UpgradeLogs")) {
+    New-Item -Path "C:\UpgradeLogs" -ItemType Directory
+}
+
+# Start the upgrade
+Start-Process -FilePath "D:\setup.exe" -ArgumentList "/auto upgrade /dynamicupdate enable /imageindex 2 /noreboot /compat IgnoreWarning /showoobe none" -Wait -NoNewWindow
+
+
+# Reboot after the setup is initiated
+Write-Host "Upgrade process started. The system will reboot in 60 seconds..."
+Start-Sleep -Seconds 3600
+Restart-Computer -Force
