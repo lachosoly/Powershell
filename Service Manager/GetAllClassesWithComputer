@@ -1,0 +1,10 @@
+Import-Module 'Microsoft.EnterpriseManagement.ServiceManager.Cmdlets'
+Import-Module 'C:\Program Files\Microsoft System Center\Service Manager\Microsoft.EnterpriseManagement.Core.Cmdlets.dll'
+# Get all classes in Service Manager
+$classes = Get-SCSMClass
+
+# Filter classes that have "Computer" in their name
+$computerClasses = $classes | Where-Object { $_.Name -like "*Computer*" }
+
+# Display the filtered classes
+$computerClasses | Select-Object Name
