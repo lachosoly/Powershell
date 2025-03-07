@@ -1,0 +1,5 @@
+# Get all relationships in Service Manager
+$relationships = Get-SCSMRelationship
+
+# Display all relationships (class names)
+$relationships | Select-Object -Property Name, Class1, Class2 | Format-Table -AutoSize
