@@ -1,0 +1,17 @@
+query user /server:hostname
+logoff <SessionID> /server:hostname
+
+##Script
+$server = "hostname"
+$user = "user.test"
+
+# Get session ID of the user
+$sessions = Get-WmiObject -Class Win32_LogonSession -ComputerName $server
+$userSession = $sessions | Where-Object { $_.LogonId -in (Get-WmiObject -Class Win32_LoggedOnUser -ComputerName $server).LogonId } | Where-Object { $_.LogonType -eq 10 }
+
+if ($userSession) {
+    Write-Output "Logging off user $user..."
+    Stop-Process -Id $userSession.LogonId -Force
+} else {
+    Write-Output "User $user not found."
+}
