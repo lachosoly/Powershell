@@ -1,0 +1,28 @@
+Import-Module 'Microsoft.EnterpriseManagement.ServiceManager.Cmdlets'
+Import-Module 'C:\Program Files\Microsoft System Center\Service Manager\Microsoft.EnterpriseManagement.Core.Cmdlets.dll'
+
+# Define the system you are searching for
+$systemName = "test.com"
+
+# Get all classes in SCSM (excluding relationships)
+$allClasses = Get-SCSMClass | Where-Object { $_.BaseName -ne "System!System.Relationship" }
+
+Write-Output "Searching for '$systemName' in all classes..."
+
+foreach ($class in $allClasses) {
+    # Retrieve all instances of the current class
+    $instances = Get-SCSMClassInstance -Class $class | Where-Object { 
+        $_.DisplayName -like "*$systemName*" -or $_.PrincipalName -like "*$systemName*" 
+    }
+
+    if ($instances) {
+        Write-Output "`nFound matches in class: $($class.DisplayName)"
+        
+        foreach ($instance in $instances) {
+            Write-Output "`n==== Properties for instance in class: $($class.DisplayName) ===="
+            $instance | Format-List *
+        }
+    }
+}
+
+Write-Output "`nSearch complete!"
