@@ -1,0 +1,20 @@
+##### Scheduled Tasks for SCOM Alerting #####
+
+# Define variables for the scheduled task parameters
+$taskName = "SSLCertificateReminder"
+$startYear = 2026
+$endYear = 2030
+
+# Loop through each year from 2026 to 2030
+for ($year = $startYear; $year -le $endYear; $year++) {
+    # Define the scheduled task action to write an event to the Event Viewer
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-Command `"if (-not (Get-EventLog -LogName Application -Source 'SCS')) { New-EventLog -LogName Application -Source 'SCS'; } Write-EventLog -LogName Application -Source 'SCS' -EventId 999 -EntryType Information -Message 'The SSL certificate will expire in less than 30 days'`""
+
+    # Define the scheduled task trigger for May 1st of the specified year
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date "$year-05-01 12:00AM")
+
+    # Register the scheduled task on the local machine
+    Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "$taskName-$year" -Description "SSL certificate expire. Import New SSL Certification $year" -User "NT AUTHORITY\SYSTEM" -RunLevel Highest
+
+    Write-Host "Scheduled task for May 1, $year created on local machine"
+}
