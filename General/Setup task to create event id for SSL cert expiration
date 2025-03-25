@@ -9,7 +9,7 @@ for ($year = $startYear; $year -le $endYear; $year++) {
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-Command `"if (-not (Get-EventLog -LogName Application -Source 'SCS')) { New-EventLog -LogName Application -Source 'SCS'; } Write-EventLog -LogName Application -Source 'SCS' -EventId 999 -EntryType Information -Message 'The SSL certificate will expire in less than 30 days'`""
 
     # Define the scheduled task trigger for May 1st of the specified year
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date "$year-05-01 12:00AM")
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date "$year-01-15 12:00AM")
 
     # Register the scheduled task on the local computer
     Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "$taskName-$year" -Description "SSL certificate expiry warning task for $year" -User "NT AUTHORITY\SYSTEM" -RunLevel Highest -Force
