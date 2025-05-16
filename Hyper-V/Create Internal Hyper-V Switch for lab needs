@@ -1,0 +1,8 @@
+# Create the internal virtual switch
+New-VMSwitch -SwitchName "NATSwitch" -SwitchType Internal
+
+# Assign IP address to the virtual switch interface
+New-NetIPAddress -IPAddress 192.168.10.2 -PrefixLength 24 -InterfaceAlias "vEthernet (NATSwitch)"
+
+# Create the NAT network
+New-NetNat -Name "NATNetwork" -InternalIPInterfaceAddressPrefix 192.168.10.0/24
