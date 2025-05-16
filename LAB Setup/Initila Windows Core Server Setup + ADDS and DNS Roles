@@ -6,3 +6,6 @@ Rename-Computer -newname dc -restart
 Enable-PSRemoting
 Install-WindowsFeature –Name "AD-Domain-Services" –IncludeManagementTools
 Install-ADDSForest -DomainName "LAB.Com" -InstallDNS
+
+#Add Computers to the lab domain
+Add-Computer -DomainName LAB.Com -Restart
