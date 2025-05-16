@@ -1,0 +1,8 @@
+New-NetIPAddress -interfacealias ethernet -IPAddress 192.168.10.10 -Prefixlength 24 -defaultgateway 192.168.10.2
+Set-DNSClientServerAddress -interfacealias ethernet -ServerAddress ("192.168.10.10")
+Rename-Computer -newname dc -restart
+
+#After Reboot
+Enable-PSRemoting
+Install-WindowsFeature –Name "AD-Domain-Services" –IncludeManagementTools
+Install-ADDSForest -DomainName "LAB.Com" -InstallDNS
