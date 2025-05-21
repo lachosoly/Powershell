@@ -1,0 +1,23 @@
+# Set the root directory where the video files are located
+$SourceDirectory = "E:\Diskf"
+
+# Get all files matching the pattern YYYY-MM-DD_*.*
+$VideoFiles = Get-ChildItem -Path $SourceDirectory -File | Where-Object {
+    $_.Name -match '^(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}'
+}
+
+foreach ($File in $VideoFiles) {
+    if ($File.Name -match '^(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}') {
+        $DatePart = $Matches[1] # Extracted date (e.g. "2018-10-04")
+        $TargetDirectory = Join-Path -Path $SourceDirectory -ChildPath $DatePart
+
+        # Create the directory if it doesn't exist
+        if (-not (Test-Path -Path $TargetDirectory)) {
+            New-Item -ItemType Directory -Path $TargetDirectory | Out-Null
+        }
+
+        # Move the file into the target directory
+        $DestinationPath = Join-Path -Path $TargetDirectory -ChildPath $File.Name
+        Move-Item -Path $File.FullName -Destination $DestinationPath
+    }
+}
