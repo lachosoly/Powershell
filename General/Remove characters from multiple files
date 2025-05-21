@@ -1,0 +1,15 @@
+# Set the target directory
+$Directory = "e:\diskf"
+
+# Get all files that start with "1_"
+Get-ChildItem -Path $Directory -File | Where-Object { $_.Name -like '1_*' } | ForEach-Object {
+    $OldName = $_.Name
+    $NewName = $OldName.Substring(2)  # Remove first two characters
+
+    # Build full paths
+    $OldFullPath = $_.FullName
+    $NewFullPath = Join-Path -Path $Directory -ChildPath $NewName
+
+    # Rename the file
+    Rename-Item -Path $OldFullPath -NewName $NewName
+}
