@@ -1,0 +1,19 @@
+$folderPath = "C:\disk1"
+
+# Get all files in the folder
+Get-ChildItem -Path $folderPath -File | ForEach-Object {
+    $creationDate = $_.CreationTime.ToString("yyyy-MM-dd_HH-mm-ss")
+    $extension = $_.Extension
+    $newName = "$creationDate$extension"
+
+    # Optional: Avoid overwriting files with same timestamp
+    $i = 1
+    while (Test-Path -Path (Join-Path $folderPath $newName)) {
+        $newName = "$creationDate`_$i$extension"
+        $i++
+    }
+
+    # Rename the file
+    Rename-Item -Path $_.FullName -NewName $newName
+    Write-Host "Renamed '$($_.Name)' to '$newName'"
+}
