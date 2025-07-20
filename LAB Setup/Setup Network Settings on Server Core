@@ -1,0 +1,12 @@
+# Get the network adapter
+$interface = Get-NetAdapter | Where-Object {$_.Status -eq "Up"}
+
+# Set static IP address, subnet mask, and default gateway
+New-NetIPAddress -InterfaceAlias $interface.Name `
+  -IPAddress 192.168.1.100 `
+  -PrefixLength 24 `
+  -DefaultGateway 192.168.1.1
+
+# Set DNS servers
+Set-DnsClientServerAddress -InterfaceAlias $interface.Name `
+  -ServerAddresses ("8.8.8.8","8.8.4.4")
