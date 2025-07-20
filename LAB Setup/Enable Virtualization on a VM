@@ -1,0 +1,1 @@
+Set-VMProcessor -VMName "YourVMName" -ExposeVirtualizationExtensions $true
