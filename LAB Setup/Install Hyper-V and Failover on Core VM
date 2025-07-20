@@ -1,0 +1,4 @@
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+#Do a reboot
+
+Install-WindowsFeature -Name Failover-Clustering -IncludeManagementTools
