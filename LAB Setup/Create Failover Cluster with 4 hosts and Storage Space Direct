@@ -1,0 +1,24 @@
+
+
+#Provision Drives
+# Define the base root path
+$baseRootPath = "D:\Hyper-V VMs"
+
+# Define VM names (keep lowercase if you want)
+$S2DVMNames = @("hcluster1","hcluster2","hcluster3","hcluster4")
+
+$S2DVMNames | ForEach-Object {
+
+    # Capitalize the first letter if needed
+    $vmName = $_.Substring(0,1).ToUpper() + $_.Substring(1)
+
+    # Compose the full path
+    $rootPath = "$baseRootPath\$vmName"
+
+    # Create 6 VHDs
+    for ($i = 1; $i -le 6; $i++) {
+        $vhdPath = "$rootPath\Disk$i.vhdx"
+        New-VHD -Path $vhdPath -SizeBytes 100GB -Dynamic
+        Add-VMHardDiskDrive -VMName $_ -Path $vhdPath -ControllerType SCSI
+    }
+}
