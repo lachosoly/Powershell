@@ -1,0 +1,62 @@
+#Setup Failover Cluster - 2 VM nodes + 1 VM vSAN
+
+$cred = Get-Credential
+Set-VMProcessor -VMName Host1,Host2 -ExposeVirtualizationExtensions $true
+Start-VM -Name Host1,Host2
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Install-WindowsFeature Hyper-V,Failover-Clustering -IncludeAllSubfeature -IncludeManagementTools -Restart }
+
+Get-VMSwitch
+Add-VMNetworkAdapter -VMName Host1,Host2 -SwitchName "LabCom" -DeviceNaming On
+Add-VMNetworkAdapter -VMName Host1,Host2 -SwitchName "LabCom" -DeviceNaming On
+Add-VMNetworkAdapter -VMName Host1,Host2 -SwitchName "LabCom" -DeviceNaming On
+Get-VMNetworkAdapter -VMName Host1,Host2
+
+Get-VMNetworkAdapter -VMName Host1,Host2 | Set-VMNetworkAdapter -MacAddressSpoofing On -AllowTeaming On
+
+Invoke-Command -VMName Host1,Host2 -credential $cred -ScriptBlock { Get-NetAdapter | ft }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { New-VMSwitch -Name Management -EnableEmbeddedTeaming $True -AllowManagementOS $True -NetAdapterName "Ethernet","Ethernet 2","Ethernet 3","Ethernet 4" }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Get-NetIPAddress | ft interfacealias, ipaddress }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Add-VMNetworkAdapter -ManagementOS -Name "Cluster" -SwitchName Management }
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Add-VMNetworkAdapter -ManagementOS -Name "Storage" -SwitchName Management }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Get-NetIPAddress | ft interfacealias, ipaddress }
+
+Invoke-Command -VMName Host1 -Credential $cred -ScriptBlock { New-NetIPAddress -InterfaceAlias "vEthernet (Cluster)" -IPAddress 10.10.12.1 -PrefixLength 24 }
+Invoke-Command -VMName Host1 -Credential $cred -ScriptBlock { New-NetIPAddress -InterfaceAlias "vEthernet (Storage)" -IPAddress 10.10.13.1-PrefixLength 24 }
+Invoke-Command -VMName Host2 -Credential $cred -ScriptBlock { New-NetIPAddress -InterfaceAlias "vEthernet (Cluster)" -IPAddress 10.10.12.2 -PrefixLength 24 }
+Invoke-Command -VMName Host2 -Credential $cred -ScriptBlock { New-NetIPAddress -InterfaceAlias "vEthernet (Storage)" -IPAddress 10.0.13.2 -PrefixLength 24 }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Get-NetIPAddress | ft interfacealias, ipaddress }
+
+Invoke-Command -VMName Host1,Host2 -Credential $cred -ScriptBlock { Set-VMSwitchTeam -Name Management -LoadBalancingAlgorithm Dynamic }
+
+Add-VMNetworkAdapter -VMName VMvSAM -SwitchName "LabCom" -DeviceNaming On
+Start-VM -Name VMvSAM
+Invoke-Command -VMName VMvSAM -Credential $cred -ScriptBlock { New-NetIPAddress -InterfaceAlias "Ethernet 2" -IPAddress 10.0.13.50 -PrefixLength 24 }
+
+
+Install-WindowsFeature -ComputerName VMvSAM FS-FileServer,FS-iSCSITarget-Server -IncludeAllSubfeature -IncludeManagementTools -Restart
+
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { Set-Service msiscsi -StartupType "Automatic" ; Start-Service msiscsi }
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { Get-InitiatorPort }
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { New-IscsiTargetPortal -TargetPortalAddress 10.0.13.100 }
+
+Invoke-Command -ComputerName VMvSAM -ScriptBlock { New-iSCSIVirtualDisk -Path "C:\iscsi-lun1.vhdx" -Description "iscsi-lun1" -Size 10GB }
+Invoke-Command -ComputerName VMvSAM -ScriptBlock { New-iSCSIServerTarget -TargetName "iscsi-target1" -InitiatorIds @("IPAddress:10.0.12.1","IPAddress:10.0.12.2") }
+Invoke-Command -ComputerName VMvSAM -ScriptBlock { Add-iSCSIVirtualDiskTargetMapping -TargetName "iscsi-target1" -Path "c:\lun1.vhdx" }
+
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { Get-IscsiTargetPortal | Update-IscsiTargetPortal }
+
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { Get-IscsiTarget }
+
+Invoke-Command -ComputerName Host1 -ScriptBlock { Connect-iscsitarget -nodeaddress iqn.1991-05.com.microsoft:VMvSAM-iscsi-target1-target -IsPersistent $true -initiatorportaladdress 10.10.13.1-targetportaladdress 10.0.1.100 }
+Invoke-Command -ComputerName Host2 -ScriptBlock { Connect-iscsitarget -nodeaddress iqn.1991-05.com.microsoft:VMvSAM-iscsi-target1-target -IsPersistent $true -initiatorportaladdress 10.10.13.2 -targetportaladdress 10.0.1.100 }
+
+Invoke-Command -ComputerName Host1,Host2 -ScriptBlock { Get-iscsisession | Register-iscsisession }
+	
+
+New-Cluster -Name clustera -Node Host1,Host2 -StaticAddress 10.10.11.50
