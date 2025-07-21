@@ -1,3 +1,5 @@
+Install-WindowsFeature -Name Hyper-V-PowerShell
+
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
 #Do a reboot
 
