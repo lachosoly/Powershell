@@ -1,0 +1,275 @@
+#Requires -Module ActiveDirectory
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+    Creates a Group Managed Service Account (gMSA) for SQL Server
+
+.DESCRIPTION
+    This script creates a gMSA for SQL Server with proper configuration including:
+    - KDS Root Key creation (if needed)
+    - gMSA account creation
+    - Security group creation for authorized hosts
+    - SPN registration for SQL Server services
+
+.PARAMETER ServiceAccountName
+    Name of the gMSA to create (without the $ suffix)
+
+.PARAMETER SQLServerHosts
+    Array of computer names that will run SQL Server and need access to the gMSA
+
+.PARAMETER DNSHostName
+    DNS hostname for SQL Server (for SPN registration)
+
+.PARAMETER PortNumber
+    SQL Server port number (default: 1433)
+
+.PARAMETER Description
+    Description for the gMSA account
+
+.EXAMPLE
+    .\Create-SQLgMSA.ps1 -ServiceAccountName "SQLSvc" -SQLServerHosts @("SQL01","SQL02") -DNSHostName "sql.contoso.com"
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ServiceAccountName,
+    
+    [Parameter(Mandatory=$true)]
+    [string[]]$SQLServerHosts,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$DNSHostName,
+    
+    [Parameter(Mandatory=$false)]
+    [int]$PortNumber = 1433,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Description = "Group Managed Service Account for SQL Server"
+)
+
+# Function to write colored output
+function Write-ColorOutput {
+    param(
+        [string]$Message,
+        [string]$Color = "White"
+    )
+    Write-Host $Message -ForegroundColor $Color
+}
+
+# Function to check if KDS Root Key exists and is usable
+function Test-KDSRootKey {
+    try {
+        $kdsRootKey = Get-KdsRootKey
+        if ($kdsRootKey) {
+            $effectiveTime = $kdsRootKey.EffectiveTime
+            $currentTime = Get-Date
+            
+            if ($effectiveTime -le $currentTime) {
+                Write-ColorOutput "KDS Root Key exists and is effective." "Green"
+                return $true
+            } else {
+                Write-ColorOutput "KDS Root Key exists but is not yet effective. Effective time: $effectiveTime" "Yellow"
+                return $false
+            }
+        } else {
+            Write-ColorOutput "No KDS Root Key found." "Yellow"
+            return $false
+        }
+    }
+    catch {
+        Write-ColorOutput "Error checking KDS Root Key: $($_.Exception.Message)" "Red"
+        return $false
+    }
+}
+
+# Function to create KDS Root Key
+function New-KDSRootKey {
+    try {
+        Write-ColorOutput "Creating KDS Root Key..." "Yellow"
+        
+        # Create KDS Root Key with immediate effectiveness (for lab environments)
+        # In production, remove -EffectiveImmediately parameter for security
+        $rootKey = Add-KdsRootKey -EffectiveImmediately
+        
+        Write-ColorOutput "KDS Root Key created successfully with ID: $($rootKey.KeyId)" "Green"
+        Write-ColorOutput "WARNING: Using -EffectiveImmediately is only recommended for lab environments!" "Yellow"
+        
+        return $true
+    }
+    catch {
+        Write-ColorOutput "Error creating KDS Root Key: $($_.Exception.Message)" "Red"
+        return $false
+    }
+}
+
+# Function to create security group for gMSA
+function New-gMSASecurityGroup {
+    param(
+        [string]$GroupName,
+        [string[]]$Members
+    )
+    
+    try {
+        # Check if group already exists
+        $existingGroup = Get-ADGroup -Filter "Name -eq '$GroupName'" -ErrorAction SilentlyContinue
+        
+        if ($existingGroup) {
+            Write-ColorOutput "Security group '$GroupName' already exists." "Yellow"
+        } else {
+            Write-ColorOutput "Creating security group '$GroupName'..." "Yellow"
+            New-ADGroup -Name $GroupName -GroupScope Global -GroupCategory Security -Description "Computers authorized to use $ServiceAccountName gMSA"
+            Write-ColorOutput "Security group '$GroupName' created successfully." "Green"
+        }
+        
+        # Add computer accounts to the group
+        foreach ($computer in $Members) {
+            try {
+                $computerAccount = Get-ADComputer $computer -ErrorAction Stop
+                Add-ADGroupMember -Identity $GroupName -Members $computerAccount -ErrorAction Stop
+                Write-ColorOutput "Added $computer to security group." "Green"
+            }
+            catch {
+                Write-ColorOutput "Warning: Could not add $computer to security group: $($_.Exception.Message)" "Yellow"
+            }
+        }
+        
+        return $GroupName
+    }
+    catch {
+        Write-ColorOutput "Error creating security group: $($_.Exception.Message)" "Red"
+        return $null
+    }
+}
+
+# Function to create the gMSA
+function New-gMSAAccount {
+    param(
+        [string]$AccountName,
+        [string]$PrincipalsAllowedToRetrieveManagedPassword,
+        [string]$Description
+    )
+    
+    try {
+        # Check if gMSA already exists
+        $existingAccount = Get-ADServiceAccount -Filter "Name -eq '$AccountName'" -ErrorAction SilentlyContinue
+        
+        if ($existingAccount) {
+            Write-ColorOutput "gMSA '$AccountName' already exists." "Yellow"
+            return $AccountName
+        }
+        
+        Write-ColorOutput "Creating gMSA '$AccountName'..." "Yellow"
+        
+        New-ADServiceAccount -Name $AccountName `
+                           -DNSHostName $DNSHostName `
+                           -PrincipalsAllowedToRetrieveManagedPassword $PrincipalsAllowedToRetrieveManagedPassword `
+                           -Description $Description `
+                           -Enabled $true
+        
+        Write-ColorOutput "gMSA '$AccountName' created successfully." "Green"
+        return $AccountName
+    }
+    catch {
+        Write-ColorOutput "Error creating gMSA: $($_.Exception.Message)" "Red"
+        return $null
+    }
+}
+
+# Function to set SPNs for SQL Server
+function Set-SQLServerSPNs {
+    param(
+        [string]$AccountName,
+        [string]$DNSHostName,
+        [int]$Port
+    )
+    
+    try {
+        Write-ColorOutput "Setting SPNs for SQL Server..." "Yellow"
+        
+        # Common SQL Server SPNs
+        $spns = @(
+            "MSSQLSvc/$DNSHostName",
+            "MSSQLSvc/$DNSHostName`:$Port"
+        )
+        
+        foreach ($spn in $spns) {
+            try {
+                Set-ADServiceAccount -Identity $AccountName -ServicePrincipalNames @{Add=$spn}
+                Write-ColorOutput "Added SPN: $spn" "Green"
+            }
+            catch {
+                Write-ColorOutput "Warning: Could not add SPN '$spn': $($_.Exception.Message)" "Yellow"
+            }
+        }
+    }
+    catch {
+        Write-ColorOutput "Error setting SPNs: $($_.Exception.Message)" "Red"
+    }
+}
+
+# Main script execution
+Write-ColorOutput "=== SQL Server gMSA Creation Script ===" "Cyan"
+Write-ColorOutput "Service Account: $ServiceAccountName" "White"
+Write-ColorOutput "SQL Server Hosts: $($SQLServerHosts -join ', ')" "White"
+Write-ColorOutput "DNS Host Name: $DNSHostName" "White"
+Write-ColorOutput "Port: $PortNumber" "White"
+Write-ColorOutput ""
+
+# Step 1: Check/Create KDS Root Key
+Write-ColorOutput "Step 1: Checking KDS Root Key..." "Cyan"
+if (-not (Test-KDSRootKey)) {
+    if (-not (New-KDSRootKey)) {
+        Write-ColorOutput "Failed to create KDS Root Key. Exiting." "Red"
+        exit 1
+    }
+    
+    # Wait a moment for the key to become effective
+    Write-ColorOutput "Waiting for KDS Root Key to become effective..." "Yellow"
+    Start-Sleep -Seconds 5
+}
+
+# Step 2: Create security group
+Write-ColorOutput "`nStep 2: Creating security group..." "Cyan"
+$securityGroupName = "$ServiceAccountName-Hosts"
+$groupResult = New-gMSASecurityGroup -GroupName $securityGroupName -Members $SQLServerHosts
+
+if (-not $groupResult) {
+    Write-ColorOutput "Failed to create security group. Exiting." "Red"
+    exit 1
+}
+
+# Step 3: Create gMSA
+Write-ColorOutput "`nStep 3: Creating gMSA..." "Cyan"
+$gmsaResult = New-gMSAAccount -AccountName $ServiceAccountName -PrincipalsAllowedToRetrieveManagedPassword $securityGroupName -Description $Description
+
+if (-not $gmsaResult) {
+    Write-ColorOutput "Failed to create gMSA. Exiting." "Red"
+    exit 1
+}
+
+# Step 4: Set SPNs
+Write-ColorOutput "`nStep 4: Setting SPNs..." "Cyan"
+Set-SQLServerSPNs -AccountName $ServiceAccountName -DNSHostName $DNSHostName -Port $PortNumber
+
+# Step 5: Verify creation
+Write-ColorOutput "`nStep 5: Verification..." "Cyan"
+try {
+    $createdAccount = Get-ADServiceAccount -Identity $ServiceAccountName -Properties *
+    Write-ColorOutput "gMSA Details:" "Green"
+    Write-ColorOutput "  Name: $($createdAccount.Name)" "White"
+    Write-ColorOutput "  DNS Host Name: $($createdAccount.DNSHostName)" "White"
+    Write-ColorOutput "  Enabled: $($createdAccount.Enabled)" "White"
+    Write-ColorOutput "  SPNs: $($createdAccount.ServicePrincipalNames -join ', ')" "White"
+}
+catch {
+    Write-ColorOutput "Warning: Could not retrieve gMSA details for verification." "Yellow"
+}
+
+Write-ColorOutput "`n=== Next Steps ===" "Cyan"
+Write-ColorOutput "1. On each SQL Server host, run: Install-ADServiceAccount -Identity $ServiceAccountName" "White"
+Write-ColorOutput "2. Test the account: Test-ADServiceAccount -Identity $ServiceAccountName" "White"
+Write-ColorOutput "3. Configure SQL Server services to use: DOMAIN\$ServiceAccountName`$" "White"
+Write-ColorOutput "4. Restart SQL Server services" "White"
+
+Write-ColorOutput "`nScript completed successfully!" "Green"
