@@ -1,0 +1,126 @@
+# Hyper-V VM Provisioning Script
+# This script creates a new VM with specified configuration
+
+# Define paths
+$VMBasePath = "D:\Hyper-V VMs"
+$SysprepImagePath = "D:\Hyper-V VMs\Sysprep\ServerCore.vhdx"
+
+# Function to validate if the sysprep image exists
+function Test-SysprepImage {
+    if (-not (Test-Path $SysprepImagePath)) {
+        Write-Error "Sysprep image not found at: $SysprepImagePath"
+        Write-Host "Please ensure the sysprep image exists before running this script." -ForegroundColor Red
+        return $false
+    }
+    return $true
+}
+
+# Function to get valid VM name
+function Get-VMName {
+    do {
+        $vmName = Read-Host "Enter the VM name"
+        if ([string]::IsNullOrWhiteSpace($vmName)) {
+            Write-Host "VM name cannot be empty. Please try again." -ForegroundColor Yellow
+            continue
+        }
+        
+        # Check if VM already exists
+        if (Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+            Write-Host "A VM with the name '$vmName' already exists. Please choose a different name." -ForegroundColor Yellow
+            continue
+        }
+        
+        # Check if folder already exists
+        $vmFolderPath = Join-Path $VMBasePath $vmName
+        if (Test-Path $vmFolderPath) {
+            Write-Host "A folder with the name '$vmName' already exists. Please choose a different name." -ForegroundColor Yellow
+            continue
+        }
+        
+        return $vmName
+    } while ($true)
+}
+
+# Set default CPU count
+$defaultCPUCount = 2
+
+# Main script execution
+try {
+    Write-Host "=== Hyper-V VM Provisioning Script ===" -ForegroundColor Green
+    Write-Host ""
+    
+    # Check if running as administrator
+    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Error "This script must be run as Administrator!"
+        exit 1
+    }
+    
+    # Validate sysprep image exists
+    if (-not (Test-SysprepImage)) {
+        exit 1
+    }
+    
+    # Get VM configuration from user
+    $vmName = Get-VMName
+    
+    Write-Host ""
+    Write-Host "Creating VM with the following configuration:" -ForegroundColor Cyan
+    Write-Host "- Name: $vmName" -ForegroundColor White
+    Write-Host "- CPUs: $defaultCPUCount" -ForegroundColor White
+    Write-Host "- Memory: 1024 MB (Dynamic)" -ForegroundColor White
+    Write-Host "- Checkpoints: Disabled" -ForegroundColor White
+    Write-Host ""
+    
+    
+    # Create VM folder
+    $vmFolderPath = Join-Path $VMBasePath $vmName
+    Write-Host "Creating VM folder: $vmFolderPath" -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $vmFolderPath -Force | Out-Null
+    
+    # Copy sysprep VHD to VM folder
+    $vmVhdPath = Join-Path $vmFolderPath "$vmName.vhdx"
+    Write-Host "Copying sysprep image to VM folder..." -ForegroundColor Yellow
+    Copy-Item -Path $SysprepImagePath -Destination $vmVhdPath -Force
+    
+    # Create the VM
+    Write-Host "Creating VM: $vmName" -ForegroundColor Yellow
+    $vm = New-VM -Name $vmName -MemoryStartupBytes 1GB -Path $VMBasePath -VHDPath $vmVhdPath -Generation 2
+    
+    # Configure VM settings
+    Write-Host "Configuring VM settings..." -ForegroundColor Yellow
+    
+    # Set CPU count
+    Set-VMProcessor -VMName $vmName -Count $defaultCPUCount
+    
+    # Configure dynamic memory
+    Set-VMMemory -VMName $vmName -DynamicMemoryEnabled $true -MinimumBytes 512MB -StartupBytes 1GB -MaximumBytes 4GB
+    
+    # Disable checkpoints (snapshots)
+    Set-VM -VMName $vmName -CheckpointType Disabled
+    
+    # Enable secure boot (recommended for Generation 2 VMs)
+    Set-VMFirmware -VMName $vmName -EnableSecureBoot On
+    
+    Write-Host ""
+    Write-Host "VM '$vmName' has been successfully created!" -ForegroundColor Green
+    Write-Host "VM Details:" -ForegroundColor Cyan
+    Write-Host "- Location: $vmFolderPath" -ForegroundColor White
+    Write-Host "- VHD Location: $vmVhdPath" -ForegroundColor White
+    Write-Host "- CPUs: $defaultCPUCount" -ForegroundColor White
+    Write-Host "- Memory: Dynamic (512MB-4GB, Start: 1GB)" -ForegroundColor White
+    Write-Host "- Checkpoints: Disabled" -ForegroundColor White
+    Write-Host ""
+    
+    # Ask if user wants to start the VM
+    $startVM = Read-Host "Would you like to start the VM now? (Y/N)"
+    if ($startVM -match '^[Yy]$') {
+        Write-Host "Starting VM: $vmName" -ForegroundColor Yellow
+        Start-VM -Name $vmName
+        Write-Host "VM started successfully!" -ForegroundColor Green
+    }
+    
+} catch {
+    Write-Error "An error occurred: $($_.Exception.Message)"
+    Write-Host "Stack Trace: $($_.ScriptStackTrace)" -ForegroundColor Red
+    exit 1
+}
