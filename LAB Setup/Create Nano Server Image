@@ -1,0 +1,12 @@
+# Import the module from the ISO folder
+Import-Module "D:\NanoServer\NanoServerImageGenerator\NanoServerImageGenerator.psm1"
+
+# Run the command
+New-NanoServerImage `
+  -MediaPath "D:\Nano Server" `
+  -BasePath "F:Hyper-V\Sysprep\Nano\Base" `
+  -TargetPath "F:Hyper-V\Sysprep\Nano\NanoServer.vhdx" `
+  -Edition Datacenter `
+  -DeploymentType Guest `
+  -ComputerName NanoServer01 `
+  -AdministratorPassword (ConvertTo-SecureString "password" -AsPlainText -Force)
